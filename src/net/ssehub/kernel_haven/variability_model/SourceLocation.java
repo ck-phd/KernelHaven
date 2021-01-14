@@ -107,7 +107,7 @@ public class SourceLocation {
 
     @Override
     public int hashCode() {
-        return source.hashCode() + new Integer(lineNumber).hashCode();
+        return source.hashCode() + Integer.valueOf(lineNumber).hashCode();
     }
     
     @Override

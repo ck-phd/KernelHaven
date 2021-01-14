@@ -146,7 +146,7 @@ public class VariabilityModelCacheTest {
 
         @Override
         public int hashCode() {
-            return super.hashCode() + new Integer(moduleNumber).hashCode();
+            return super.hashCode() + Integer.valueOf(moduleNumber).hashCode();
         }
 
         @Override

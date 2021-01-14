@@ -351,7 +351,7 @@ public class VariabilityVariable {
 
     @Override
     public int hashCode() {
-        return name.hashCode() + type.hashCode() + new Integer(dimacsNumber).hashCode();
+        return name.hashCode() + type.hashCode() + Integer.valueOf(dimacsNumber).hashCode();
     }
 
     @Override

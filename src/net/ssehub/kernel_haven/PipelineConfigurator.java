@@ -386,7 +386,7 @@ public class PipelineConfigurator {
                 
                 LOGGER.logInfo("Running preparation " + prepartionClass.getCanonicalName());
                 
-                IPreparation preparation = notNull(prepartionClass.newInstance());
+                IPreparation preparation = notNull(prepartionClass.getDeclaredConstructor().newInstance());
                 
                 Thread.currentThread().setName("Preparation");
                 preparation.run(config);

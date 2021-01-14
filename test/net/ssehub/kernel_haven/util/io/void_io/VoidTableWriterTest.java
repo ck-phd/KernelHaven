@@ -27,12 +27,13 @@ public class VoidTableWriterTest {
     /**
      * Simply call all methods once; there is not much to test.
      */
+    @SuppressWarnings("null")
     @Test
     public void simpleTest() {
         VoidTableWriter writer = new VoidTableWriter();
         
         writer.writeRow("A", "B", "C");
-        writer.writeObject(new Integer(4));
+        writer.writeObject(Integer.valueOf(4));
         writer.flush();
         writer.close();
     }
