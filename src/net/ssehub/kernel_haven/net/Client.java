@@ -128,13 +128,13 @@ public class Client {
      * given server network address. It enables sending a message to that server, if the connection is successfully
      * established.
      * 
-     * @param serverNetworkAddress the network address of the server this client instance should be connected to
+     * @param serverNetworkAddress the network address of the server this client instance should be connected to; that
+     *        string must be of the form "SERVER_IP::SERVER_PORT"
      * @return a new client instance connected to the server specified by the given network address
      * @throws NetException if the server network address is not specified (correctly), initializing the client fails,
      *         or connecting to the desired server fails
      */
     public static Client connect(String serverNetworkAddress) throws NetException {
-        // networkAddress = "<IP>::<PORT>"
         if (serverNetworkAddress != null && !serverNetworkAddress.isBlank()) {
             String[] splittedSeverNetworkAdress = serverNetworkAddress.split("::");
             if (splittedSeverNetworkAdress.length == 2) {
