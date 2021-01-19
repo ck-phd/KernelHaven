@@ -224,23 +224,23 @@ public class Run {
         // If this method is called, args[0] at least holds "--server" (see main method)
         String serverFlag = args[0];
         String serverNetworkAddress = getFlagValue(serverFlag);
-        if (serverNetworkAddress != null) {
-            // Remove server flag from args
-            String[] reducedArgs = new String[args.length - 1];
-            for (int i = 1; i < args.length; i++) {
-                reducedArgs[i - 1] = args[i];
-            }
-            
-            // Call the typical KernelHaven setup with reduced args (no server flag included)
-            if (setup(reducedArgs)) {
-                // Start the IncrementalPipelineConfigurator and its internal server
-                LOGGER.logInfo("Start executing incremental KernelHaven with configuration file "
-                        + propertiesFile.getPath());
-                printSystemInfo();
-                IncrementalPipelineConfigurator.run(serverNetworkAddress);
-                isRunning = true;
-            }
+        
+        // Remove server flag from args
+        String[] reducedArgs = new String[args.length - 1];
+        for (int i = 1; i < args.length; i++) {
+            reducedArgs[i - 1] = args[i];
         }
+        
+        // Call the typical KernelHaven setup with reduced args (no server flag included)
+        if (setup(reducedArgs)) {
+            // Start the IncrementalPipelineConfigurator and its internal server
+            LOGGER.logInfo("Start executing incremental KernelHaven with configuration file "
+                    + propertiesFile.getPath());
+            printSystemInfo();
+            IncrementalPipelineConfigurator.run(serverNetworkAddress);
+            isRunning = true;
+        }
+        
         return isRunning;
     }
     
