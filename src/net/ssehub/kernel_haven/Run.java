@@ -181,6 +181,7 @@ public class Run {
      * @return <code>true</code>, if executing the client was successful; <code>false</code> otherwise
      */
     public static boolean runClient(String... args) {
+        Thread.currentThread().setName("Client");
         boolean success = false;
         /*
          * Expected args: args[0] == "--client=SERVER_IP::SERVER_PORT", args[1] == "COMMIT_CONTENT"
@@ -188,6 +189,7 @@ public class Run {
          */
         if (args.length == 2) {
             try {
+                LOGGER.logInfo("Start executing KernelHaven client");
                 Client client = Client.connect(getFlagValue(args[0]));
                 LOGGER.logInfo("Client sends: " + args[1]);
                 String serverAnswer = client.send(args[1]);
