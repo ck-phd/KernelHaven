@@ -125,16 +125,34 @@ public class Client {
     
     /**
      * Creates a new client instance. That instance is automatically connected to the server specified by the
-     * given IP and port parameters. It enables sending a message to that server, if the connection is successfully
+     * given server network address. It enables sending a message to that server, if the connection is successfully
      * established.
      * 
-     * @param ip the IP of the server this client instance should be connected to
-     * @param port the port of the server this client instance should be connected to
-     * @return a new client instance connected to the server specified by the given IP and port
-     * @throws NetException if initializing the client or connecting to the desired server fails
+     * @param serverNetworkAddress the network address of the server this client instance should be connected to
+     * @return a new client instance connected to the server specified by the given network address
+     * @throws NetException if the server network address is not specified (correctly), initializing the client fails,
+     *         or connecting to the desired server fails
      */
-    public static Client connect(String ip, int port) throws NetException {
-        return new Client(ip, port);
+    public static Client connect(String serverNetworkAddress) throws NetException {
+        // networkAddress = "<IP>::<PORT>"
+        if (serverNetworkAddress != null && !serverNetworkAddress.isBlank()) {
+            String[] splittedSeverNetworkAdress = serverNetworkAddress.split("::");
+            if (splittedSeverNetworkAdress.length == 2) {
+                try {               
+                    String ip = splittedSeverNetworkAdress[0];
+                    int port = Integer.parseInt(splittedSeverNetworkAdress[1]);
+                    return new Client(ip, port);
+                } catch (NumberFormatException e) {
+                    throw new NetException("Parsing server port number \"" + splittedSeverNetworkAdress[1]
+                            + "\" failed", e);
+                }
+            } else {
+                throw new NetException("Server network address \"" + serverNetworkAddress 
+                        + "\" does not match format \"<IP>::<PORT>\", e.g. \"127.0.0.1::3141\"");
+            }
+        } else {
+            throw new NetException("Server network address not specified, e.g. \"--client=127.0.0.1::3141\"");
+        }
     }
     
 }
