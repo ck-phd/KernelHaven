@@ -15,8 +15,10 @@
  */
 package net.ssehub.kernel_haven.incremental;
 
+import net.ssehub.comani.analysis.AnalysisResult;
 import net.ssehub.kernel_haven.PipelineConfigurator;
 import net.ssehub.kernel_haven.SetUpException;
+import net.ssehub.kernel_haven.config.Configuration;
 import net.ssehub.kernel_haven.net.IServerTask;
 import net.ssehub.kernel_haven.net.NetException;
 import net.ssehub.kernel_haven.net.Server;
@@ -44,9 +46,21 @@ public class IncrementalPipelineConfigurator implements IServerTask {
     private static final PipelineConfigurator WRAPPED_CONFIGURATOR = PipelineConfigurator.instance();
     
     /**
+     * The wrapper of the Commit Analysis Infrastructure (ComAnI) for parsing a given commit (string) and identifying
+     * its changes relevant for the desired KernelHaven analysis.
+     */
+    private static final ComAnI WRAPPED_COMANI = ComAnI.instance();
+    
+    /**
      * The singleton instance of this class.
      */
     private static IncrementalPipelineConfigurator instance;
+    
+    /**
+     * The current configuration of KernelHaven as specified by the user-defined properties file passed as command line
+     * argument.
+     */
+    private static Configuration configuration;
     
     /**
      * Constructs the singleton instance of this class.
@@ -72,11 +86,13 @@ public class IncrementalPipelineConfigurator implements IServerTask {
     }
     
     /**
-     * Prepares the {@link #WRAPPED_CONFIGURATOR}.
+     * Prepares the incremental infrastructure by loading the {@link #WRAPPED_COMANI} infrastructure and setting up the
+     * {@link #WRAPPED_CONFIGURATOR}.
      * 
      * @throws SetUpException if preparation fails
      */
     private void prepare() throws SetUpException {
+        WRAPPED_COMANI.loadInfrastructure(configuration);
         WRAPPED_CONFIGURATOR.loadPlugins();
         WRAPPED_CONFIGURATOR.instantiateExtractors();
         WRAPPED_CONFIGURATOR.createProviders();
@@ -98,6 +114,17 @@ public class IncrementalPipelineConfigurator implements IServerTask {
          * changes and that the extractors only re-extract if necessary; in other cases either the extractors or
          * some other instance(s) must provide the unchanged artifacts (as the hybrid cache does). 
          */
+        try {
+            /*
+             * TODO avoid using AnalysisResult here directly as it belongs to ComAnI.
+             * Maybe individual getters for each type of artifacts indicating whether such artifacts changed by the
+             * current commit.
+             */
+            AnalysisResult analysisResult = WRAPPED_COMANI.analyze(input);
+            LOGGER.logInfo("ComAnI analysis results: " + analysisResult);
+        } catch (IncrementalException e) {
+            LOGGER.logException("Incremental analysis failed", e);
+        }
         
         WRAPPED_CONFIGURATOR.runAnalysis();
         
@@ -111,15 +138,19 @@ public class IncrementalPipelineConfigurator implements IServerTask {
     
     /**
      * Creates the singleton instance of this {@link IncrementalPipelineConfigurator} and starts its internal server
-     * with the given server network address to perform incremental analyses based on received client messages.
+     * with the given server network address and the given configuration to perform incremental analyses based on
+     * received client messages.
      *  
      * @param serverNetworkAddress the network address of the internal server; that string must either be
      *        <code>null</code> to run the internal server as <i>localhost</i> or of the form "SERVER_IP::SERVER_PORT"
      *        to run the internal server with that address
+     * @param config the current configuration of KernelHaven as specified by the user-defined properties file
+     *        passed as command line argument
      */
-    public static void run(String serverNetworkAddress) {
+    public static void run(String serverNetworkAddress, Configuration config) {
         if (instance == null) {            
             try {
+                configuration = config; 
                 instance = new IncrementalPipelineConfigurator(serverNetworkAddress);
             } catch (SetUpException e) {
                 LOGGER.logException("Error while setting up incremental pipeline", e);

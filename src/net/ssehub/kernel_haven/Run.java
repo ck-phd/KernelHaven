@@ -239,7 +239,7 @@ public class Run {
             LOGGER.logInfo("Start executing incremental KernelHaven with configuration file "
                     + propertiesFile.getPath());
             printSystemInfo();
-            IncrementalPipelineConfigurator.run(serverNetworkAddress);
+            IncrementalPipelineConfigurator.run(serverNetworkAddress, config);
             isRunning = true;
         }
         
