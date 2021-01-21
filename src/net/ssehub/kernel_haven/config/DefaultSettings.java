@@ -150,6 +150,7 @@ public class DefaultSettings {
      */
     
     public static final @NonNull ListSetting<@NonNull String> PREPARATION_CLASSES = new ListSetting<>("preparation.class", STRING, false, "A list of fully qualified class names that defines which preparations to run. A preparation class has to implement IPreperation. The preparations defined here are executed in the defined order.");
+    public static final @NonNull Setting<@NonNull String> COMANI_PROPERTIES_FILE_PATH = new Setting<>("comani.properties_file", STRING, false, null, "The absolute path to the Commit Analysis Infrastructue (ComAnI) properties file specifying the desired setup for parsing commits and analyzing their changes.");
     
     // CHECKSTYLE:ON
     /**
