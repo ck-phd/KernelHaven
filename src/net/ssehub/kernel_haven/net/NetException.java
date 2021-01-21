@@ -16,7 +16,7 @@
 package net.ssehub.kernel_haven.net;
 
 /**
- * A package-specific exception type that indicates problems of the KernelHave client-server-infrastructure.
+ * A package-specific exception type that indicates problems of the KernelHaven client-server-infrastructure.
  * 
  * @author Christian Kroeher
  */
