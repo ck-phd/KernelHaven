@@ -172,8 +172,10 @@ public class Server {
                 LOGGER.logInfo("Receiving shutdown message from " + connection);
                 connection.send("Shutting down");
                 shutdown = true;
+                LOGGER.logInfo("Initiating server shutdown");
             } else {
                 serverTask.execute(clientMessage);
+                LOGGER.logInfo("Replying to " + connection);
                 connection.send(serverTask.getExecutionSummary());
             }        
         } catch (IOException e) {
