@@ -20,8 +20,6 @@ import java.util.Properties;
 
 import net.ssehub.comani.analysis.AbstractCommitAnalyzer;
 import net.ssehub.comani.analysis.AnalysisResult;
-import net.ssehub.comani.core.Setup;
-import net.ssehub.comani.core.SetupException;
 import net.ssehub.comani.data.Commit;
 import net.ssehub.comani.data.CommitQueue;
 import net.ssehub.comani.data.CommitQueue.QueueState;
@@ -109,48 +107,29 @@ public class ComAnI {
         // If not loaded, do that now
         String comaniPropertiesFilePath = configuration.getValue(DefaultSettings.COMANI_PROPERTIES_FILE_PATH);
         if (comaniPropertiesFilePath != null && !comaniPropertiesFilePath.isBlank()) {            
-            LOGGER.logInfo("Loading ComAnI with configuration file " + comaniPropertiesFilePath);
-            /*
-             * The ComAnI setup was designed to accept the command line arguments as input only. In order to avoid
-             * additional implementation effort, it is the easiest way to simply use a new array for that purpose.
-             */
-            String[] comaniArgs = {comaniPropertiesFilePath};
-            try {
-                // Create the internal ComAnI setup and related infrastructure properties
-                /*
-                 * TODO do not use the ComAnI setup as it has too restrictive checks, requires mandatory properties
-                 * and creates an output directory, which are not used in this integration.
-                 * Create the subset of necessary properties based on the properties file in separate method as part of
-                 * loading the infrastructure.
-                 * 
-                 * It could also be an option to use optional KernelHaven settings instead of a separate ComAnI
-                 * properties file. 
-                 */
-                Setup comaniSetup = Setup.getInstance(comaniArgs);
-                Properties comaniCoreProperties = comaniSetup.getCoreProperties();
-                
-                // Prepare the ComAnI infrastructure utilities for later use to instantiate the ComAnI plug-ins
-                String pluginsDirectoryPath = comaniCoreProperties.getProperty(Setup.PROPERTY_CORE_PLUGINS_DIR);
-                File pluginsDirectory = new File(pluginsDirectoryPath); // Existence-check already done in ComAnI setup
-                COMANI_UTILITIES.setPluginsDirectory(pluginsDirectory);
-                
-                // Instantiate and configure the core elements of ComAnI
-                commitQueue = new CommitQueue(1);
-                commitQueue.setState(QueueState.OPEN); // TODO Close the queue again? (destroyed at server stop anyway)
-                commitExtractor = getCommitExtractor(comaniSetup, commitQueue);
-                if (commitExtractor == null) {
-                    throw new SetUpException("Instiatating ComAnI extractor failed");
-                }
-                commitAnalyzer = getCommitAnalyzer(comaniSetup, commitQueue);
-                if (commitAnalyzer == null) {
-                    throw new SetUpException("Instiatating ComAnI analyzer failed");
-                }
-                
-                infrastructureLoaded = true;
-                LOGGER.logInfo("Loaded ComAnI successfully");
-            } catch (SetupException e) {
-                throw new SetUpException("Loading ComAnI failed", e);
+            LOGGER.logInfo("Loading ComAnI with configuration file " + comaniPropertiesFilePath);                
+            IncrementalSetup incrementalSetup = IncrementalSetup.init(comaniPropertiesFilePath);
+            
+            // Prepare the ComAnI infrastructure utilities for later use to instantiate the ComAnI plug-ins
+            Properties comaniCoreProperties = incrementalSetup.getCoreProperties();
+            String pluginsDirectoryPath = comaniCoreProperties.getProperty(IncrementalSetup.PROPERTY_CORE_PLUGINS_DIR);
+            File pluginsDirectory = new File(pluginsDirectoryPath); // Existence-check already done in IncrementalSetup
+            COMANI_UTILITIES.setPluginsDirectory(pluginsDirectory);
+            
+            // Instantiate and configure the core elements of ComAnI
+            commitQueue = new CommitQueue(1);
+            commitQueue.setState(QueueState.OPEN); // TODO Close the queue again? (destroyed at server stop anyway)
+            commitExtractor = getCommitExtractor(incrementalSetup, commitQueue);
+            if (commitExtractor == null) {
+                throw new SetUpException("Instantiating ComAnI extractor failed");
             }
+            commitAnalyzer = getCommitAnalyzer(incrementalSetup, commitQueue);
+            if (commitAnalyzer == null) {
+                throw new SetUpException("Instantiating ComAnI analyzer failed");
+            }
+            
+            infrastructureLoaded = true;
+            LOGGER.logInfo("Loaded ComAnI successfully");
         } else {
             throw new SetUpException(DefaultSettings.COMANI_PROPERTIES_FILE_PATH.getKey() + " is not specified; it must"
                     + "hold the absolute path to an existing ComAnI properties file");
@@ -159,43 +138,44 @@ public class ComAnI {
     
     /**
      * Instantiates, configures, and returns the desired ComAnI commit extractor specified by
-     * {@link Setup#PROPERTY_EXTRACTION_CLASS}.
+     * {@link IncrementalSetup#PROPERTY_EXTRACTION_CLASS}.
      * 
-     * @param comaniSetup the ComAnI setup representing the user-defined infrastructure configuration
+     * @param incrementalSetup the ComAnI setup representing the user-defined infrastructure configuration
      * @param commitQueue the commit queue the commit extractor requires as target to push its extracted commit
      *        information to
      * @return the desired ComAnI commit extractor or <code>null</code>, if instantiating that extractor fails  
      */
-    private AbstractCommitExtractor getCommitExtractor(Setup comaniSetup, CommitQueue commitQueue) {
-        Properties comaniExtractionProperties = comaniSetup.getExtractionProperties();
-        String extractorClassName = comaniExtractionProperties.getProperty(Setup.PROPERTY_EXTRACTION_CLASS);
+    private AbstractCommitExtractor getCommitExtractor(IncrementalSetup incrementalSetup, CommitQueue commitQueue) {
+        Properties comaniExtractionProperties = incrementalSetup.getExtractionProperties();
+        String extractorClassName = comaniExtractionProperties.getProperty(IncrementalSetup.PROPERTY_EXTRACTION_CLASS);
         LOGGER.logInfo("Instantiating ComAnI extractor " + extractorClassName);
         return COMANI_UTILITIES.instantiateExtractor(extractorClassName, comaniExtractionProperties, commitQueue);
     }
     
     /**
      * Instantiates, configures, and returns the desired ComAnI commit analyzer specified by
-     * {@link Setup#PROPERTY_ANALYSIS_CLASS}.
+     * {@link IncrementalSetup#PROPERTY_ANALYSIS_CLASS}.
      * 
-     * @param comaniSetup the ComAnI setup representing the user-defined infrastructure configuration
+     * @param incrementalSetup the ComAnI setup representing the user-defined infrastructure configuration
      * @param commitQueue the commit queue The commit analyzer requires as source to receive commit information to
      *        analyze.
      * @return the desired ComAnI commit analyzer or <code>null</code>, if instantiating that analyzer fails  
      */
-    private AbstractCommitAnalyzer getCommitAnalyzer(Setup comaniSetup, CommitQueue commitQueue) {
-        Properties comaniAnalysisProperties = comaniSetup.getAnalysisProperties();
-        String analyzerClassName = comaniAnalysisProperties.getProperty(Setup.PROPERTY_ANALYSIS_CLASS);
+    private AbstractCommitAnalyzer getCommitAnalyzer(IncrementalSetup incrementalSetup, CommitQueue commitQueue) {
+        Properties comaniAnalysisProperties = incrementalSetup.getAnalysisProperties();
+        String analyzerClassName = comaniAnalysisProperties.getProperty(IncrementalSetup.PROPERTY_ANALYSIS_CLASS);
         LOGGER.logInfo("Instantiating ComAnI analyzer " + analyzerClassName);
         return COMANI_UTILITIES.instantiateAnalyzer(analyzerClassName, comaniAnalysisProperties, commitQueue);
     }
     
     /**
-     * Analyzes the given commit.
-     * TODO write proper JavaDoc
+     * Analyzes the given commit (string) using the ComAnI commit extractor and commit analyzer.
      * 
-     * @param commitString the commit TODO
-     * @return the return TODO
-     * @throws IncrementalException the exception TOOD
+     * @param commitString the string containing a complete commit information
+     * @return the analysis result containing the information about changes relevant to the current KernelHaven analysis
+     *         or <code>null</code>, if no (relevant) result can be determined
+     * @throws IncrementalException if extracting or analyzing the given commit (string) fails or, if this method is
+     *         called before {@link #loadInfrastructure(Configuration)}
      */
     public AnalysisResult analyze(String commitString) throws IncrementalException {
         AnalysisResult analysisResult = null;
@@ -204,7 +184,9 @@ public class ComAnI {
                 // ComAnI extractors automatically add their extracted commits to the commit queue
                 Commit commit = commitQueue.getCommit();
                 if (commit != null) {                    
-                    commitAnalyzer.analyze(commit);
+                    analysisResult = commitAnalyzer.analyze(commit);
+                } else {
+                    LOGGER.logWarning("Commit extraction successful, but no commit for commit analysis available");
                 }
             } else {
                 throw new IncrementalException("Extracting the current commit for commit analysis failed");
