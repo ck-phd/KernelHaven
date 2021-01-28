@@ -16,10 +16,12 @@
 package net.ssehub.kernel_haven.incremental;
 
 import java.io.File;
+import java.util.List;
 import java.util.Properties;
 
+import net.ssehub.comani.analysis.AbstractAnalysisResult;
 import net.ssehub.comani.analysis.AbstractCommitAnalyzer;
-import net.ssehub.comani.analysis.AnalysisResult;
+import net.ssehub.comani.analysis.VerificationRelevantResult;
 import net.ssehub.comani.data.Commit;
 import net.ssehub.comani.data.CommitQueue;
 import net.ssehub.comani.data.CommitQueue.QueueState;
@@ -79,6 +81,11 @@ public class ComAnI {
      * the value <code>false</code>, which is also the default value.
      */
     private boolean infrastructureLoaded;
+    
+    /**
+     * The result of analyzing a single given commit (string).
+     */
+    private VerificationRelevantResult commitAnalysisResult;
 
     /**
      * Constructs the singleton instance of this class. That instance requires initialization via 
@@ -96,7 +103,7 @@ public class ComAnI {
      * @param configuration the current configuration of KernelHaven as specified by the user-defined properties file
      *        passed as command line argument 
      * @throws SetUpException if {@link DefaultSettings#COMANI_PROPERTIES_FILE_PATH} is <code>null</code>, creating the
-     *         ComAnI setup fails, or the loading the ComAnI plug-ins fails
+     *         ComAnI setup, or loading the ComAnI plug-ins fails
      */
     @SuppressWarnings("null") // The default value of settings may be null, although getValue has @NonNull return
     public void loadInfrastructure(Configuration configuration) throws SetUpException {
@@ -169,24 +176,38 @@ public class ComAnI {
     }
     
     /**
-     * Analyzes the given commit (string) using the ComAnI commit extractor and commit analyzer.
+     * Analyzes the given commit (string) using the ComAnI commit extractor and commit analyzer. The results of a
+     * successful analysis can be obtained via {@link #getChangedCodeArtifacts()}, {@link #hasBuildArtifactChanges()},
+     * and {@link #hasVariabilityModelArtifactChanges()}.
      * 
      * @param commitString the string containing a complete commit information
-     * @return the analysis result containing the information about changes relevant to the current KernelHaven analysis
-     *         or <code>null</code>, if no (relevant) result can be determined
      * @throws IncrementalException if extracting or analyzing the given commit (string) fails or, if this method is
      *         called before {@link #loadInfrastructure(Configuration)}
      */
-    public AnalysisResult analyze(String commitString) throws IncrementalException {
-        AnalysisResult analysisResult = null;
+    public void analyze(String commitString) throws IncrementalException {
+        LOGGER.logDebug("ComAnI starts analyzing the following commit:", commitString);
+        // Reset the analysis result to avoid a previous result to be available even if the current analysis fails
+        commitAnalysisResult = null;
         if (infrastructureLoaded) {
             if (commitExtractor.extract(commitString)) {
                 // ComAnI extractors automatically add their extracted commits to the commit queue
                 Commit commit = commitQueue.getCommit();
                 if (commit != null) {                    
-                    analysisResult = commitAnalyzer.analyze(commit);
+                    AbstractAnalysisResult analysisResult = commitAnalyzer.analyze(commit);
+                    if (analysisResult != null) {
+                        try {                            
+                            this.commitAnalysisResult = (VerificationRelevantResult) analysisResult;
+                            System.out.println("ComAnI Analysis Result:");
+                            System.out.println(this.commitAnalysisResult);
+                        } catch (ClassCastException e) {
+                            throw new IncrementalException("Commit analysis provides unexpected result type", e);
+                        }
+                    } else {
+                        throw new IncrementalException("Analyzing the current commit failed");
+                    }
                 } else {
-                    LOGGER.logWarning("Commit extraction successful, but no commit for commit analysis available");
+                    throw new IncrementalException("Commit extraction successful, but no commit for commit analysis "
+                            + "available");
                 }
             } else {
                 throw new IncrementalException("Extracting the current commit for commit analysis failed");
@@ -195,7 +216,73 @@ public class ComAnI {
             throw new IncrementalException("ComAnI not loaded yet due to missing or non-successful call for loading"
                     + " that infrastructure");
         }
-        return analysisResult;
+    }
+    
+    /**
+     * Returns the identifier (e.g., SHA) of the latest analyzed commit.
+     *  
+     * @return the identifier (e.g., SHA) of the latest analyzed commit or <code>null</code>, if no commit analysis
+     *         result or no commit identifier is available
+     * @see #analyze(String)
+     */
+    public String getAnalyzedCommitIdentifier() {
+        String commitIdentifier = null;
+        if (commitAnalysisResult != null) {
+            commitIdentifier = commitAnalysisResult.getCommitIdentifier();
+        }
+        return commitIdentifier;
+    }
+    
+    /**
+     * Returns the result of analyzing a given commit (string) in terms of the list of code artifacts (their relative
+     * paths) for which the analyzed commit changes variability information. These paths are relative to the main
+     * directory of the software (repository) under analysis, e.g. specified by {@link DefaultSettings#SOURCE_TREE}.
+     * 
+     * @return the list of relative paths to code artifact with changed variability information or <code>null</code>, if
+     *         no commit analysis result is available; an empty list indicates no variability information changes in
+     *         code artifacts
+     * @see #analyze(String) 
+     */
+    public List<String> getChangedCodeArtifacts() {
+        List<String> relevantCodeChanges = null;
+        if (commitAnalysisResult != null) {
+            relevantCodeChanges = commitAnalysisResult.getRelevantCodeChanges();
+        }
+        return relevantCodeChanges;
+    }
+    
+    /**
+     * Returns the result of analyzing a given commit (string) in terms of whether that commit changes variability
+     * information in at least one build artifact.
+     * 
+     * @return <code>true</code>, if variability information in at least one build artifact changed; <code>false</code>
+     *         otherwise, which indicates either no variability information changes in build artifacts or even no commit
+     *         analysis result available
+     * @see #analyze(String) 
+     */
+    public boolean hasBuildArtifactChanges() {
+        boolean relevantBuildChanges = false;
+        if (commitAnalysisResult != null) {
+            relevantBuildChanges = commitAnalysisResult.getRelevantBuildChanges();
+        }
+        return relevantBuildChanges;
+    }
+    
+    /**
+     * Returns the result of analyzing a given commit (string) in terms of whether that commit changes variability
+     * information in at least one variability model artifact.
+     * 
+     * @return <code>true</code>, if variability information in at least one variability model artifact changed;
+     *         <code>false</code> otherwise, which indicates either no variability information changes in variability
+     *         model artifacts or even no commit analysis result available
+     * @see #analyze(String) 
+     */
+    public boolean hasVariabilityModelArtifactChanges() {
+        boolean relevantVariabilityModelChanges = false;
+        if (commitAnalysisResult != null) {
+            relevantVariabilityModelChanges = commitAnalysisResult.getRelevantVariabilityModelChanges();
+        }
+        return relevantVariabilityModelChanges;
     }
     
     /**

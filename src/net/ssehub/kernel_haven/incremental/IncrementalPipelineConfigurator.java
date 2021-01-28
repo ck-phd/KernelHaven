@@ -15,7 +15,8 @@
  */
 package net.ssehub.kernel_haven.incremental;
 
-import net.ssehub.comani.analysis.AnalysisResult;
+import java.util.List;
+
 import net.ssehub.kernel_haven.PipelineConfigurator;
 import net.ssehub.kernel_haven.SetUpException;
 import net.ssehub.kernel_haven.config.Configuration;
@@ -115,25 +116,62 @@ public class IncrementalPipelineConfigurator implements IServerTask {
          * some other instance(s) must provide the unchanged artifacts (as the hybrid cache does). 
          */
         try {
-            /*
-             * TODO avoid using AnalysisResult here directly as it belongs to ComAnI.
-             * Maybe individual getters for each type of artifacts indicating whether such artifacts changed by the
-             * current commit.
-             */
-            AnalysisResult analysisResult = WRAPPED_COMANI.analyze(input);
-            LOGGER.logInfo("ComAnI analysis results: " + analysisResult);
+            LOGGER.logDebug("Starting ComAnI with the following input:", input);
+            WRAPPED_COMANI.analyze(input);
+            LOGGER.logDebug("Starting actual KernelHaven analysis");
+            WRAPPED_CONFIGURATOR.runAnalysis();
         } catch (IncrementalException e) {
-            LOGGER.logException("Incremental analysis failed", e);
-        }
-        
-        WRAPPED_CONFIGURATOR.runAnalysis();
-        
+            // Get some information from input to indicate the error
+            String errorMessage = "Input is \"null\"";
+            if (input != null) {
+                errorMessage = "Input is empty";
+                if (!input.isBlank()) {
+                    if (input.length() <= 20) {
+                        errorMessage = "Input is: " + input;
+                    } else {
+                        errorMessage = "Input starts with: " + input.substring(0, 20);
+                    }
+                }
+            }
+            LOGGER.logError("Incremental analysis fails", errorMessage, e.getMessage());
+        }        
     }
 
     @Override
     public String getExecutionSummary() {
-        // TODO Return the result of the incremental analysis or at least the path to the saved results (file).
-        return "TODO: analysis result will be provided soon";
+        // TODO return the KernelHaven analysis result or at least the path to the saved results (file)
+        String executionSummary = "ComAnI does not provide an analysis result";
+        
+        String analyzedCommitIdentifier = WRAPPED_COMANI.getAnalyzedCommitIdentifier();
+        if (analyzedCommitIdentifier != null) {
+            StringBuilder executionSummaryBuilder = new StringBuilder();            
+            
+            executionSummaryBuilder.append("ComAnI result for commit ");
+            executionSummaryBuilder.append(analyzedCommitIdentifier);
+            executionSummaryBuilder.append(" :");
+            executionSummaryBuilder.append(System.lineSeparator());
+            
+            List<String> changedCodeArtifacts = WRAPPED_COMANI.getChangedCodeArtifacts();
+            executionSummaryBuilder.append("Changed code artifact(s):");
+            executionSummaryBuilder.append(System.lineSeparator());
+            for (String changedCodeArtifact : changedCodeArtifacts) {
+                executionSummaryBuilder.append("  ");
+                executionSummaryBuilder.append(changedCodeArtifact);
+                executionSummaryBuilder.append(System.lineSeparator());
+            }
+            
+            executionSummaryBuilder.append("Changed build artifact(s): ");
+            executionSummaryBuilder.append(WRAPPED_COMANI.hasBuildArtifactChanges());
+            executionSummaryBuilder.append(System.lineSeparator());
+            
+            executionSummaryBuilder.append("Changed variability model artifact(s): ");
+            executionSummaryBuilder.append(WRAPPED_COMANI.hasVariabilityModelArtifactChanges());
+            executionSummaryBuilder.append(System.lineSeparator());
+            
+            executionSummary = executionSummaryBuilder.toString();
+        }
+        
+        return executionSummary;
     }
     
     /**

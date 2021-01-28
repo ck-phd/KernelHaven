@@ -190,13 +190,13 @@ public class Run {
         if (args.length == 2) {
             try {
                 LOGGER.logInfo("Start executing KernelHaven client");
-                Client client = Client.connect(getFlagValue(args[0]));
-                LOGGER.logInfo("Client sends: " + args[1]);
-                String serverAnswer = client.send(args[1]);
-                LOGGER.logInfo("Client receives: " + serverAnswer);
+                Client client = new Client(getFlagValue(args[0]));
+                LOGGER.logInfo("Client sending the following message:", args[1]);
+                String serverReply = client.send(args[1]);
+                LOGGER.logInfo("Client received the following server reply: ", serverReply);
                 client.close();
             } catch (NetException e) {
-                LOGGER.logException("Executing KernelHaven client failed", e);
+                LOGGER.logException("Executing KernelHaven client fails", e);
             }
         } else {
             LOGGER.logError("Wrong number of arguments.",

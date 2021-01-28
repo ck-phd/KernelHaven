@@ -23,12 +23,12 @@ import java.net.UnknownHostException;
 import net.ssehub.kernel_haven.util.Logger;
 
 /**
- * This class realizes the KernelHaven server. That server initializes KernelHaven as usual via a given configuration,
+ * This class realizes the KernelHaven server. This server initializes KernelHaven as usual via a given configuration,
  * but postpones the actual analysis. The server executes that analysis every time it receives a message from a client
  * and as long as that message does not solely include the server's {@link #SHUT_DOWN_COMMAND}. 
  *
  * In general, a client message is considered a commit describing changes to the software specified by
- * <i>source_tree</i> in the KernelHaven configuration file. That commit is further processed to reduce the analysis to
+ * <i>source_tree</i> in the KernelHaven configuration file. This commit is further processed to reduce the analysis to
  * only those elements affected by the changes. Hence, the server is a fundamental component of incremental KernelHaven.
  * 
  * @author Christian Kroeher
@@ -149,7 +149,7 @@ public class Server {
         try {
             close();
         } catch (NetException e) {
-            LOGGER.logException("An error occurs when closing the socket of " + this, e);
+            LOGGER.logException("An error occurs when closing " + this, e);
         }
     }
     
@@ -165,18 +165,19 @@ public class Server {
     private void handleConnection() throws NetException {
         Connection connection = null;
         try {
-            connection = Connection.connect(serverSocket.accept());
+            connection = new Connection(serverSocket.accept());
             LOGGER.logInfo("Receiving message from " + connection);
             String clientMessage = connection.receive();
             if (clientMessage.strip().equals(SHUT_DOWN_COMMAND)) {
                 LOGGER.logInfo("Receiving shutdown message from " + connection);
-                connection.send("Shutting down");
+                connection.send("Shutting down " + this);
                 shutdown = true;
                 LOGGER.logInfo("Initiating server shutdown");
             } else {
                 serverTask.execute(clientMessage);
                 LOGGER.logInfo("Replying to " + connection);
                 connection.send(serverTask.getExecutionSummary());
+                LOGGER.logInfo("Reply send to " + connection);
             }        
         } catch (IOException e) {
             throw new NetException("An I/O error occurs when waiting for a client connection", e);
@@ -219,7 +220,7 @@ public class Server {
     }
     
     /**
-     * Starts the single instance of the KernelHaven server. That server uses the given network address and executes the
+     * Starts the single instance of the KernelHaven server. This server uses the given network address and executes the
      * given server task every time it receives a message from a client.
      * 
      * @param networkAddress the network address at which this server will be available; valid values must be of the
@@ -247,7 +248,7 @@ public class Server {
     }
     
     /**
-     * Starts the single instance of the KernelHaven server. That server uses the {@link #DEFAULT_IP} and the
+     * Starts the single instance of the KernelHaven server. This server uses the {@link #DEFAULT_IP} and the
      * {@link #DEFAULT_PORT} as its network address and executes the given server task every time it receives a message
      * from a client.
      * 
@@ -259,8 +260,8 @@ public class Server {
     }
     
     /**
-     * Starts the single instance of the KernelHaven server. That server uses the given ip, port, and backlog as its
-     * network address and executes the given server task every time it receives a message from a client.
+     * Starts the single instance of the KernelHaven server. This server uses the given IP and port as its network
+     * address and the given backlog to execute the given server task every time it receives a message from a client.
      * 
      * @param ip the IP at which this server will be available
      * @param port the port at which this server will be available
